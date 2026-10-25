@@ -169,6 +169,18 @@ function makeQuestion(n) {
         return { value: 0.5, label: "1÷2" };
     }
 
+    if (difficulty === "hard") {
+        const a = Math.floor(Math.random() * 9) + 1;
+        const b = Math.floor(Math.random() * 9) + 1;
+        const c = Math.floor(Math.random() * 9) + 1;
+
+        const value = a + b * c;
+        return {
+            value: value,
+            label: `${a}+${b}×${c}`
+        };
+    }
+    
     if (type === 0) {
         a = Math.floor(Math.random() * 20) + 1;
         b = Math.floor(Math.random() * 20) + 1;
