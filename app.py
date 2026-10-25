@@ -1,3 +1,4 @@
+
 from flask import Flask, render_template_string
 
 app = Flask(__name__)
@@ -23,6 +24,13 @@ body {
     margin: auto;
 }
 h1 { color: #5146d8; }
+#difficulty {
+    padding: 8px;
+    margin: 8px;
+    border: 2px solid #d4daf0;
+    border-radius: 8px;
+    font-size: 16px;
+}
 .info {
     display: flex;
     justify-content: space-around;
@@ -31,12 +39,13 @@ h1 { color: #5146d8; }
 }
 .info div {
     background: white;
-    padding: 12px;
+    padding: 12px 5px;
     border-radius: 12px;
     flex: 1;
+    min-width: 0;
 }
 .value {
-    font-size: 24px;
+    font-size: clamp(17px, 4vw, 24px);
     font-weight: bold;
 }
 #board {
@@ -51,11 +60,12 @@ h1 { color: #5146d8; }
     border-radius: 12px;
     background: white;
     box-shadow: 0 3px 0 #d4daf0;
-    font-size: clamp(13px, 3.5vw, 20px);
+    font-size: clamp(12px, 3.5vw, 20px);
     font-weight: bold;
     overflow-wrap: anywhere;
     cursor: pointer;
     color: #29365a;
+    padding: 3px;
 }
 .cell:disabled { cursor: default; }
 .cell.done {
@@ -75,6 +85,10 @@ button.action {
     font-weight: bold;
     cursor: pointer;
 }
+button.action:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
 #message {
     min-height: 28px;
     font-weight: bold;
@@ -83,6 +97,7 @@ button.action {
     body { padding: 10px; }
     #board { gap: 5px; }
     .cell { min-height: 58px; }
+    .info div { padding: 10px 3px; }
 }
 </style>
 </head>
@@ -90,19 +105,19 @@ button.action {
 <div class="container">
     <h1>🧮 数式タッチ</h1>
     <p>答えが小さい数式から順番にタッチしよう！</p>
+
     <label for="difficulty">難易度：</label>
     <select id="difficulty">
-      <option value="easy">初級</option>
-      <option value="normal" selected>中級</option>
-      <option value="hard">上級</option>
+        <option value="easy">初級</option>
+        <option value="normal" selected>中級</option>
+        <option value="hard">上級</option>
+        <option value="expert">最上級</option>
     </select>
-
-    
 
     <div class="info">
         <div>
             <div>次の答え</div>
-            <div class="value" id="next">1/4</div>
+            <div class="value" id="next">-</div>
         </div>
         <div>
             <div>タイム</div>
@@ -128,6 +143,7 @@ const message = document.getElementById("message");
 const startButton = document.getElementById("start");
 const resetButton = document.getElementById("reset");
 const penaltyDisplay = document.getElementById("penalty");
+const difficultySelect = document.getElementById("difficulty");
 
 const penaltySeconds = 2;
 penaltyDisplay.textContent = "+" + penaltySeconds + "秒";
@@ -140,111 +156,168 @@ let elapsedPenalty = 0;
 let timer = null;
 let playing = false;
 
-function gcd(a, b) {
-    a = Math.abs(a);
-    b = Math.abs(b);
-    while (b !== 0) {
-        const r = a % b;
-        a = b;
-        b = r;
-    }
-    return a || 1;
-}
+function makeQuestion() {
+    const difficulty = difficultySelect.value;
+    let a, b, c, type;
 
-function makeQuestion(n) {
-    const difficulty = document.getElementById("difficulty").value;
-    let type;
-
+    // 初級：足し算・引き算
     if (difficulty === "easy") {
         type = Math.floor(Math.random() * 2);
-    } else {
-        type = Math.floor(Math.random() * 4);
-    }
-    let a, b, numerator, denominator, text;
 
-    if (n === 0) {
-        return { value: 0.25, label: "1÷4" };
-    }
-    if (n === 1) {
-        return { value: 0.5, label: "1÷2" };
-    }
+        if (type === 0) {
+            a = Math.floor(Math.random() * 20) + 1;
+            b = Math.floor(Math.random() * 20) + 1;
+            return {
+                value: a + b,
+                label: `${a}+${b}`
+            };
+        }
 
-    if (difficulty === "hard") {
-        const a = Math.floor(Math.random() * 9) + 1;
-        const b = Math.floor(Math.random() * 9) + 1;
-        const c = Math.floor(Math.random() * 9) + 1;
-
-        const value = a + b * c;
+        a = Math.floor(Math.random() * 25) + 1;
+        b = Math.floor(Math.random() * a) + 1;
         return {
-            value: value,
-            label: `${a}+${b}×${c}`
+            value: a - b,
+            label: `${a}−${b}`
         };
     }
-    
+
+    // 中級：四則演算
+    if (difficulty === "normal") {
+        type = Math.floor(Math.random() * 4);
+
+        if (type === 0) {
+            a = Math.floor(Math.random() * 20) + 1;
+            b = Math.floor(Math.random() * 20) + 1;
+            return {
+                value: a + b,
+                label: `${a}+${b}`
+            };
+        }
+
+        if (type === 1) {
+            a = Math.floor(Math.random() * 25) + 1;
+            b = Math.floor(Math.random() * a) + 1;
+            return {
+                value: a - b,
+                label: `${a}−${b}`
+            };
+        }
+
+        if (type === 2) {
+            a = Math.floor(Math.random() * 9) + 1;
+            b = Math.floor(Math.random() * 9) + 1;
+            return {
+                value: a * b,
+                label: `${a}×${b}`
+            };
+        }
+
+        a = Math.floor(Math.random() * 24) + 1;
+        b = Math.floor(Math.random() * 12) + 1;
+        return {
+            value: a / b,
+            label: `${a}÷${b}`
+        };
+    }
+
+    // 上級：複数の演算を組み合わせる
+    if (difficulty === "hard") {
+        a = Math.floor(Math.random() * 9) + 1;
+        b = Math.floor(Math.random() * 9) + 1;
+        c = Math.floor(Math.random() * 9) + 1;
+
+        type = Math.floor(Math.random() * 3);
+
+        if (type === 0) {
+            return {
+                value: a + b * c,
+                label: `${a}+${b}×${c}`
+            };
+        }
+
+        if (type === 1) {
+            return {
+                value: (a + b) * c,
+                label: `(${a}+${b})×${c}`
+            };
+        }
+
+        return {
+            value: a * (b + c),
+            label: `${a}×(${b}+${c})`
+        };
+    }
+
+    // 最上級：括弧を使った計算
+    a = Math.floor(Math.random() * 9) + 1;
+    b = Math.floor(Math.random() * 9) + 1;
+    c = Math.floor(Math.random() * 9) + 1;
+
+    type = Math.floor(Math.random() * 4);
+
     if (type === 0) {
-        a = Math.floor(Math.random() * 20) + 1;
-        b = Math.floor(Math.random() * 20) + 1;
-        return { value: a + b, label: `${a}+${b}` };
+        return {
+            value: (a + b) * c,
+            label: `(${a}+${b})×${c}`
+        };
     }
 
     if (type === 1) {
-        a = Math.floor(Math.random() * 25) + 1;
-        b = Math.floor(Math.random() * a) + 1;
-        return { value: a - b, label: `${a}−${b}` };
+        return {
+            value: (a + b) / c,
+            label: `(${a}+${b})÷${c}`
+        };
     }
 
     if (type === 2) {
-        a = Math.floor(Math.random() * 9) + 1;
-        b = Math.floor(Math.random() * 9) + 1;
-        return { value: a * b, label: `${a}×${b}` };
+        return {
+            value: a * (b + c),
+            label: `${a}×(${b}+${c})`
+        };
     }
 
-    a = Math.floor(Math.random() * 24) + 1;
-    b = Math.floor(Math.random() * 12) + 1;
-    numerator = a;
-    denominator = b;
-    const d = gcd(numerator, denominator);
-    numerator /= d;
-    denominator /= d;
-
-    text = denominator === 1
-        ? `${numerator}`
-        : `${a}÷${b}`;
-
     return {
-        value: a / b,
-        label: text
+        value: (a + b) * (c + 1),
+        label: `(${a}+${b})×(${c}+1)`
     };
 }
 
 function createQuestions() {
-    const difficulty = document.getElementById("difficulty").value;
     const values = new Set();
     questions = [];
 
-    // 0.25、0.5を含め、答えが重ならない問題を作る
-    questions.push(makeQuestion(0));
-    questions.push(makeQuestion(1));
-    values.add("0.25");
-    values.add("0.5");
-
+    // 答えが重ならないように25問作る
     let attempts = 0;
-    while (questions.length < 25 && attempts < 10000) {
+
+    while (questions.length < 25 && attempts < 50000) {
         attempts++;
-        const q = makeQuestion(2);
+
+        const q = makeQuestion();
         const key = String(Math.round(q.value * 1000000) / 1000000);
 
-        if (values.has(key)) continue;
+        if (!Number.isFinite(q.value) || values.has(key)) {
+            continue;
+        }
+
         values.add(key);
         questions.push(q);
     }
 
+    if (questions.length < 25) {
+        message.textContent =
+            "問題を十分に作れませんでした。もう一度お試しください。";
+        return false;
+    }
+
+    // 答えの小さい順に並べる
     questions.sort((a, b) => a.value - b.value);
 
-    // 答えの順番は保持して、盤面の配置だけシャッフル
+    // 盤面に表示する順番だけシャッフルする
     const displayQuestions = [...questions];
+
     for (let i = displayQuestions.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
+
         [displayQuestions[i], displayQuestions[j]] =
             [displayQuestions[j], displayQuestions[i]];
     }
@@ -257,16 +330,23 @@ function createQuestions() {
         button.className = "cell";
         button.textContent = q.label;
         button.disabled = true;
-        button.addEventListener("click", () => handleClick(q, button));
+
+        button.addEventListener("click", () => {
+            handleClick(q, button);
+        });
+
         board.appendChild(button);
         buttons.push(button);
     });
+
+    return true;
 }
 
 function formatAnswer(value) {
-    if (Math.abs(value - 0.25) < 0.000001) return "1/4";
-    if (Math.abs(value - 0.5) < 0.000001) return "1/2";
-    if (Number.isInteger(value)) return String(value);
+    if (Number.isInteger(value)) {
+        return String(value);
+    }
+
     return String(Number(value.toFixed(3)));
 }
 
@@ -283,20 +363,30 @@ function handleClick(q, button) {
         if (nextIndex >= questions.length) {
             finishGame();
         } else {
-            nextDisplay.textContent = formatAnswer(questions[nextIndex].value);
+            nextDisplay.textContent =
+                formatAnswer(questions[nextIndex].value);
             message.textContent = "正解！その調子！";
         }
     } else {
         elapsedPenalty += penaltySeconds;
         button.classList.add("wrong");
-        message.textContent = `順番が違うよ！ +${penaltySeconds}秒`;
-        setTimeout(() => button.classList.remove("wrong"), 250);
+        message.textContent =
+            `順番が違うよ！ +${penaltySeconds}秒`;
+
+        setTimeout(() => {
+            button.classList.remove("wrong");
+        }, 250);
+
+        updateTime();
     }
 }
 
 function updateTime() {
     if (!playing) return;
-    const elapsed = (Date.now() - startTime) / 1000 + elapsedPenalty;
+
+    const elapsed =
+        (Date.now() - startTime) / 1000 + elapsedPenalty;
+
     timeDisplay.textContent = elapsed.toFixed(2);
 }
 
@@ -304,20 +394,33 @@ function finishGame() {
     playing = false;
     clearInterval(timer);
     timer = null;
+
     updateFinalTime();
-    buttons.forEach(button => button.disabled = true);
+
+    buttons.forEach(button => {
+        button.disabled = true;
+    });
+
     startButton.textContent = "▶ もう一度遊ぶ";
     message.textContent = "🎉 クリア！おめでとう！";
 }
 
 function updateFinalTime() {
-    const elapsed = (Date.now() - startTime) / 1000 + elapsedPenalty;
+    const elapsed =
+        (Date.now() - startTime) / 1000 + elapsedPenalty;
+
     timeDisplay.textContent = elapsed.toFixed(2);
 }
 
 function startGame() {
     clearInterval(timer);
-    createQuestions();
+    timer = null;
+
+    if (!createQuestions()) {
+        playing = false;
+        return;
+    }
+
     nextIndex = 0;
     elapsedPenalty = 0;
     startTime = Date.now();
@@ -327,7 +430,10 @@ function startGame() {
     timeDisplay.textContent = "0.00";
     message.textContent = "小さい答えからタッチ！";
     startButton.textContent = "▶ プレイ中";
-    buttons.forEach(button => button.disabled = false);
+
+    buttons.forEach(button => {
+        button.disabled = false;
+    });
 
     timer = setInterval(updateTime, 50);
 }
@@ -338,32 +444,40 @@ function resetGame() {
     playing = false;
     nextIndex = 0;
     elapsedPenalty = 0;
-    createQuestions();
+
+    if (!createQuestions()) {
+        nextDisplay.textContent = "-";
+        timeDisplay.textContent = "0.00";
+        startButton.textContent = "▶ スタート";
+        return;
+    }
+
     nextDisplay.textContent = formatAnswer(questions[0].value);
     timeDisplay.textContent = "0.00";
     message.textContent = "スタートを押して挑戦しよう！";
     startButton.textContent = "▶ スタート";
-    buttons.forEach(button => button.disabled = true);
+
+    buttons.forEach(button => {
+        button.disabled = true;
+    });
 }
 
-startButton.addEventListener("click", startGame);
-document.getElementById("difficulty").addEventListener("change", () => {
+difficultySelect.addEventListener("change", () => {
     clearInterval(timer);
+    timer = null;
     playing = false;
-    createQuestions();
     nextIndex = 0;
     elapsedPenalty = 0;
 
-    nextDisplay.textContent = formatAnswer(questions[0].value);
-    timeDisplay.textContent = "0.00";
-    message.textContent = "難易度を選び、スタートを押してね！";
-    startButton.textContent = "▶ スタート";
-    buttons.forEach(button => button.disabled = true);
+    resetGame();
+    message.textContent = "難易度を選んだよ！スタートしよう！";
 });
+
+startButton.addEventListener("click", startGame);
 resetButton.addEventListener("click", resetGame);
 
-createQuestions();
-nextDisplay.textContent = formatAnswer(questions[0].value);
+// 最初の画面を準備する
+resetGame();
 </script>
 </body>
 </html>
@@ -374,4 +488,4 @@ def index():
     return render_template_string(HTML)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)
