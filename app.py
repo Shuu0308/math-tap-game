@@ -347,6 +347,19 @@ function resetGame() {
 }
 
 startButton.addEventListener("click", startGame);
+document.getElementById("difficulty").addEventListener("change", () => {
+    clearInterval(timer);
+    playing = false;
+    createQuestions();
+    nextIndex = 0;
+    elapsedPenalty = 0;
+
+    nextDisplay.textContent = formatAnswer(questions[0].value);
+    timeDisplay.textContent = "0.00";
+    message.textContent = "難易度を選び、スタートを押してね！";
+    startButton.textContent = "▶ スタート";
+    buttons.forEach(button => button.disabled = true);
+});
 resetButton.addEventListener("click", resetGame);
 
 createQuestions();
