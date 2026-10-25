@@ -152,7 +152,14 @@ function gcd(a, b) {
 }
 
 function makeQuestion(n) {
-    const type = Math.floor(Math.random() * 4);
+    const difficulty = document.getElementById("difficulty").value;
+    let type;
+
+    if (difficulty === "easy") {
+        type = Math.floor(Math.random() * 2);
+    } else {
+        type = Math.floor(Math.random() * 4);
+    }
     let a, b, numerator, denominator, text;
 
     if (n === 0) {
@@ -199,6 +206,7 @@ function makeQuestion(n) {
 }
 
 function createQuestions() {
+    const difficulty = document.getElementById("difficulty").value;
     const values = new Set();
     questions = [];
 
