@@ -90,6 +90,14 @@ button.action {
 <div class="container">
     <h1>🧮 数式タッチ</h1>
     <p>答えが小さい数式から順番にタッチしよう！</p>
+    <label for="difficulty">難易度：</label>
+    <select id="difficulty">
+      <option value="easy">初級</option>
+      <option value="normal" selected>中級</option>
+      <option value="hard">上級</option>
+    </select>
+
+    
 
     <div class="info">
         <div>
