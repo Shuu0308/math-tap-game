@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template_string
 
 app = Flask(__name__)
@@ -68,6 +67,49 @@ h1 { color: #5146d8; }
     padding: 3px;
 }
 .cell:disabled { cursor: default; }
+.cell.correct-pop {
+    animation: correctPop 0.32s ease;
+}
+.cell.wrong {
+    animation: wrongShake 0.28s ease;
+}
+@keyframes correctPop {
+    0% { transform: scale(1); }
+    45% { transform: scale(1.12); box-shadow: 0 0 0 5px #b8f4c8; }
+    100% { transform: scale(1); }
+}
+@keyframes wrongShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+    75% { transform: translateX(-3px); }
+}
+body.clear-flash {
+    animation: clearFlash 0.65s ease;
+}
+@keyframes clearFlash {
+    0%, 100% { background: #f0f4ff; }
+    35% { background: #fff1a8; }
+    70% { background: #d5ffe2; }
+}
+#celebration {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 10;
+}
+.confetti {
+    position: absolute;
+    top: -20px;
+    width: 10px;
+    height: 16px;
+    border-radius: 2px;
+    animation: confettiFall 1.8s linear forwards;
+}
+@keyframes confettiFall {
+    to { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+}
 .cell.done {
     background: #c8f7d5;
     color: #237a43;
@@ -131,8 +173,10 @@ button.action:disabled {
 
     <div id="board"></div>
     <p id="message">スタートを押して挑戦しよう！</p>
+    <div id="celebration" aria-hidden="true"></div>
     <button class="action" id="start">▶ スタート</button>
     <button class="action" id="reset">↻ リセット</button>
+    <button class="action" id="soundToggle" type="button">🔊 効果音 ON</button>
 </div>
 
 <script>
@@ -144,6 +188,8 @@ const startButton = document.getElementById("start");
 const resetButton = document.getElementById("reset");
 const penaltyDisplay = document.getElementById("penalty");
 const difficultySelect = document.getElementById("difficulty");
+const soundToggle = document.getElementById("soundToggle");
+const celebration = document.getElementById("celebration");
 
 const penaltySeconds = 2;
 penaltyDisplay.textContent = "+" + penaltySeconds + "秒";
@@ -155,6 +201,70 @@ let startTime = 0;
 let elapsedPenalty = 0;
 let timer = null;
 let playing = false;
+let soundEnabled = true;
+let audioContext = null;
+
+function playTone(frequency, duration = 0.12, type = "sine", volume = 0.06, delay = 0) {
+    if (!soundEnabled) return;
+
+    try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+
+        if (!audioContext) audioContext = new AudioContextClass();
+        if (audioContext.state === "suspended") audioContext.resume();
+
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        const startAt = audioContext.currentTime + delay;
+
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(frequency, startAt);
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(volume, startAt + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start(startAt);
+        oscillator.stop(startAt + duration + 0.02);
+    } catch (error) {
+        // 効果音が使えない環境でもゲームは続けられる
+    }
+}
+
+function playCorrectSound() {
+    playTone(660, 0.09, "sine", 0.055);
+    playTone(880, 0.12, "sine", 0.05, 0.08);
+}
+
+function playWrongSound() {
+    playTone(180, 0.18, "square", 0.035);
+}
+
+function playClearSound() {
+    playTone(523, 0.16, "sine", 0.06, 0);
+    playTone(659, 0.16, "sine", 0.06, 0.14);
+    playTone(784, 0.16, "sine", 0.06, 0.28);
+    playTone(1047, 0.32, "sine", 0.07, 0.42);
+}
+
+function showConfetti() {
+    celebration.innerHTML = "";
+    const colors = ["#ff5d8f", "#ffc857", "#55d6be", "#7b61ff", "#4da3ff"];
+    for (let i = 0; i < 90; i++) {
+        const piece = document.createElement("span");
+        piece.className = "confetti";
+        piece.style.left = Math.random() * 100 + "%";
+        piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        piece.style.animationDelay = (Math.random() * 0.7) + "s";
+        piece.style.transform = "rotate(" + Math.floor(Math.random() * 360) + "deg)";
+        celebration.appendChild(piece);
+    }
+    window.setTimeout(() => {
+        celebration.innerHTML = "";
+    }, 2800);
+}
 
 function makeQuestion() {
     const difficulty = difficultySelect.value;
@@ -356,8 +466,10 @@ function handleClick(q, button) {
     const expected = questions[nextIndex];
 
     if (q === expected) {
-        button.classList.add("done");
+        playCorrectSound();
+        button.classList.add("done", "correct-pop");
         button.disabled = true;
+        window.setTimeout(() => button.classList.remove("correct-pop"), 350);
         nextIndex++;
 
         if (nextIndex >= questions.length) {
@@ -368,6 +480,7 @@ function handleClick(q, button) {
             message.textContent = "正解！その調子！";
         }
     } else {
+        playWrongSound();
         elapsedPenalty += penaltySeconds;
         button.classList.add("wrong");
         message.textContent =
@@ -375,7 +488,7 @@ function handleClick(q, button) {
 
         setTimeout(() => {
             button.classList.remove("wrong");
-        }, 250);
+        }, 300);
 
         updateTime();
     }
@@ -403,6 +516,11 @@ function finishGame() {
 
     startButton.textContent = "▶ もう一度遊ぶ";
     message.textContent = "🎉 クリア！おめでとう！";
+    document.body.classList.remove("clear-flash");
+    void document.body.offsetWidth;
+    document.body.classList.add("clear-flash");
+    playClearSound();
+    showConfetti();
 }
 
 function updateFinalTime() {
@@ -475,6 +593,12 @@ difficultySelect.addEventListener("change", () => {
 
 startButton.addEventListener("click", startGame);
 resetButton.addEventListener("click", resetGame);
+
+soundToggle.addEventListener("click", () => {
+    soundEnabled = !soundEnabled;
+    soundToggle.textContent = soundEnabled ? "🔊 効果音 ON" : "🔇 効果音 OFF";
+    if (soundEnabled) playTone(660, 0.1, "sine", 0.05);
+});
 
 // 最初の画面を準備する
 resetGame();
